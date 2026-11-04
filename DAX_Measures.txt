@@ -1,0 +1,32 @@
+-- Base (order grain, all statuses; matches your current cards)
+Total Revenue = SUM(orders[final_amount])
+Total Orders = DISTINCTCOUNT(orders[order_id])
+Average Order Value = DIVIDE([Total Revenue], [Total Orders])
+Total Customers = DISTINCTCOUNT(customers[customer_id])
+
+-- Status-aware revenue
+Delivered Revenue = CALCULATE([Total Revenue], orders[order_status] = "Delivered")
+Valid Orders = CALCULATE([Total Orders], orders[order_status] <> "Failed")
+Failed Orders = CALCULATE([Total Orders], orders[order_status] = "Failed")
+
+-- Item grain (use order_items, never orders, for category/product)
+Item Revenue = SUM(order_items[item_revenue])
+Quantity Sold = SUM(order_items[quantity])
+Item Profit = SUM(order_items[profit])
+
+-- Customers (non-failed orders only)
+Purchasing Customers = CALCULATE(DISTINCTCOUNT(orders[customer_id]), orders[order_status] <> "Failed")
+Repeat Customers =
+COUNTROWS(FILTER(VALUES(customers[customer_id]), CALCULATE([Valid Orders]) > 1))
+One-time Customers =
+COUNTROWS(FILTER(VALUES(customers[customer_id]), CALCULATE([Valid Orders]) = 1))
+
+-- Operations
+Delayed Rate = DIVIDE(CALCULATE(COUNTROWS(shipments), shipments[delayed_flag] = 1, shipments[delivery_status] = "Delivered"), CALCULATE(COUNTROWS(shipments), shipments[delivery_status] = "Delivered"))
+Returned Orders = DISTINCTCOUNT(returns[order_id])
+Return Rate = DIVIDE([Returned Orders], CALCULATE([Total Orders], orders[order_status] IN {"Delivered","Returned"}))
+
+-- Marketing (attributed, NOT incremental)
+Campaign Orders = CALCULATE([Total Orders], NOT ISBLANK(orders[campaign_id]))
+Attributed Revenue = CALCULATE([Total Revenue], NOT ISBLANK(orders[campaign_id]))
+Campaign Cost = SUM(marketing_campaigns[campaign_cost])
